@@ -1,0 +1,2 @@
+D:\Documents\Visual Studio Projects\STEAKYWebNFTWallet\bin\Debug\net6.0\publish\firebase.json
+D:\Documents\Visual Studio Projects\STEAKYWebNFTWallet\bin\Debug\net6.0\publish\web.config

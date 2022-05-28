@@ -1,0 +1,16 @@
+{
+  "hosting": {
+    "public": "bin\\Release\\net6.0",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

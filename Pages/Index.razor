@@ -1,0 +1,881 @@
+﻿@page "/"
+
+@inherits LayoutComponentBase
+@using Nethereum.UI;
+@using System.Numerics;
+@using Nethereum.Metamask;
+@inject IJSRuntime jsRuntime;
+@inject IEthereumHostProvider _ethereumHostProvider;
+@using Nethereum.Web3;
+@using System.ComponentModel.DataAnnotations;
+@using Nethereum.Hex.HexTypes;
+@using System.Linq;
+@using Newtonsoft.Json;
+@inject ISnackbar Snackbar
+
+
+@if (NethereumService.IsConnected)
+{
+    <MudContainer Class="mud-theme-primary" MaxWidth=MaxWidth.ExtraExtraLarge>
+        <MudPaper Height=2000px Class="mud-theme-primary" Elevation="0" Style="padding-top:40px">
+            <MudText Typo=Typo.h2>Welcome to SteakSoft's Wallet</MudText>
+            <MudButton OnClick=UpdateAllBalance Class="mt-8 ml-6" Variant=Variant.Outlined Size=Size.Large Style="@($"color:{Colors.LightBlue.Accent1}; background:{Colors.LightBlue.Darken4};")">
+                Refresh Balance
+            </MudButton>
+            <MudButton OnClick=SaveAllNetworksToLocalStorage Class="mt-8 ml-6" Variant=Variant.Outlined Size=Size.Large Style="@($"color:{Colors.LightBlue.Accent1}; background:{Colors.LightBlue.Darken4};")">
+                Save Listed Assets
+            </MudButton>
+            <MudContainer MaxWidth=MaxWidth.ExtraExtraLarge>
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudCard Class="mt-10">
+                            <MudCardHeader>
+                                <CardHeaderContent>
+                                    <MudText Typo="Typo.h6">COINS</MudText>
+                                </CardHeaderContent>
+                                <CardHeaderActions>
+                                    <MudIconButton Icon="@Icons.Material.Filled.AddCircleOutline" Color="Color.Default" />
+                                </CardHeaderActions>
+                            </MudCardHeader>
+                            <MudCardContent>
+                                <MudText>Assets:</MudText>
+                                <MudPaper Elevation=0 Square="true">
+                                    <MudList Clickable="true">
+
+                                        <MudListItem Icon="fas fa-coins" IconColor=Color.Primary>
+                                            @BNB_Balance Ether
+                                            <MudMenu Class="d-inline" Icon=@Icons.Material.Filled.MoreVert>
+                                                <MudMenuItem OnClick=@(e => ShowEtherTransfer())>Transfer</MudMenuItem>
+                                            </MudMenu>
+                                        </MudListItem>
+
+                                        @if (CurrentNetwork.OwnedListedToken.Count != 0)
+                                        {
+                                            foreach (var listedToken in CurrentNetwork.OwnedListedToken)
+                                            {
+                                                <MudListItem Icon="fas fa-coins" IconColor=Color.Primary>
+                                                    @Web3.Convert.FromWei(listedToken.Balance,(int)listedToken.Token.Decimal) @listedToken.Token.Symbol
+                                                    <MudMenu Class="d-inline" Icon=@Icons.Material.Filled.MoreVert>
+                                                        <MudMenuItem OnClick=@(e => ShowERC20Transfer(listedToken.Token))>Transfer</MudMenuItem>
+                                                        <MudMenuItem OnClick=@(e => CurrentNetwork.OwnedListedToken.Remove(listedToken))>Remove from List</MudMenuItem>
+                                                    </MudMenu>
+                                                </MudListItem>
+                                                <MudDivider DividerType="DividerType.Inset" />
+                                            }
+                                        }
+                                    </MudList>
+                                </MudPaper>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudCard Class="mt-10">
+                            <MudCardHeader>
+                                <CardHeaderContent>
+                                    <MudText Typo="Typo.h6">NFTs</MudText>
+                                </CardHeaderContent>
+                                <CardHeaderActions>
+                                    <MudIconButton Icon="@Icons.Material.Filled.AddCircleOutline" Color="Color.Default" />
+                                </CardHeaderActions>
+                            </MudCardHeader>
+                            <MudCardContent>
+                                <MudText>Assets:</MudText>
+                                <MudPaper Elevation=0 Square="true">
+                                    @if (CurrentNetwork.OwnedListedERC1155.Count + CurrentNetwork.OwnedListedERC721.Count > 0)
+                                    {
+                                        <MudList Clickable="true">
+
+                                            @foreach (var nft in CurrentNetwork.OwnedListedERC1155)
+                                            {
+                                                <MudListItem Icon="fas fa-dice-one" IconColor=Color.Primary>
+                                                    @nft.Balance @nft.Name
+                                                    <MudMenu Class="d-inline" Icon=@Icons.Material.Filled.MoreVert>
+                                                        <MudMenuItem OnClick=@(e => ShowERC1155Transfer(nft.NFT))>Transfer</MudMenuItem>
+                                                        <MudMenuItem OnClick=@(e => CurrentNetwork.OwnedListedERC1155.Remove(nft))>Remove from List</MudMenuItem>
+                                                        <MudMenuItem OnClick=@(e => ShowNFTMetadata(nft.NFT,(int)nft.TokenID))>Display Properties</MudMenuItem>
+                                                    </MudMenu>
+                                                </MudListItem>
+                                                <MudDivider DividerType="DividerType.Inset" />
+                                            }
+                                            @foreach (var nft in CurrentNetwork.OwnedListedERC721)
+                                            {
+                                                <MudListItem Icon="fas fa-dice-one" IconColor=Color.Primary>
+                                                    <MudText Class="d-inline"> @nft.Balance @nft.Name </MudText>
+
+                                                    <MudMenu Class="d-inline" Icon=@Icons.Material.Filled.MoreVert>
+                                                        <MudMenuItem OnClick=@(e => ShowERC721Transfer(nft.NFT))>Transfer</MudMenuItem>
+                                                        <MudMenuItem OnClick=@(e => CurrentNetwork.OwnedListedERC721.Remove(nft))>Remove from List</MudMenuItem>
+                                                        <MudMenuItem OnClick=@(e => ShowNFTMetadata(nft.NFT,0))>Display Properties</MudMenuItem>
+                                                    </MudMenu>
+                                                </MudListItem>
+
+                                                <MudDivider DividerType="DividerType.Inset" />
+                                            }
+                                        </MudList>
+                                    }
+                                </MudPaper>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                    <MudItem id="add_erc20" xs="12" md="6">
+                        <EditForm Model="@ERC20Model" OnValidSubmit="OnERC20ValidSubmit">
+                            <DataAnnotationsValidator />
+                            <MudCard>
+                                <MudCardContent>
+                                    <MudTextField Label="Token Contract Address"
+                                              @bind-Value="ERC20Model.TokenAddress" For="@(() => ERC20Model.TokenAddress)" />
+                                    <MudTextField Label="Token Symbol" Class="mt-3"
+                                              @bind-Value="ERC20Model.TokenSymbol" For="@(() => ERC20Model.TokenSymbol)" />
+                                    <MudTextField Label="Token Decimal" Class="mt-3"
+                                              @bind-Value="ERC20Model.TokenDecimal" For="@(() => ERC20Model.TokenDecimal)" InputType=InputType.Number />
+                                </MudCardContent>
+                                <MudCardActions>
+                                    @if (ERC20Result == AddTokenResult.Success)
+                                    {
+                                        <MudText Align=Align.Right Color=@Color.Success>Success</MudText>
+                                    }
+                                    else if (ERC20Result == AddTokenResult.Existed)
+                                    {
+                                        <MudText Align=Align.Right Color=@Color.Error>Token Already Added</MudText>
+                                    }
+                                    else if (ERC20Result == AddTokenResult.Invalid_Address)
+                                    {
+                                        <MudText Align=Align.Right Color=@Color.Error>Invalid Contract Address</MudText>
+                                    }
+
+                                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Add Token</MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </EditForm>
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        @*     NFT Listing     *@
+                        @if (ActiveNFTForm == NFTForm.ERC1155)
+                        {
+                            <EditForm Model="@ERC1155Model" OnValidSubmit="OnERC1155ValidSubmit">
+                                <DataAnnotationsValidator />
+                                <MudCard>
+                                    <MudCardContent>
+                                        <MudGrid>
+                                            <MudItem xs=6>
+                                                <MudSelect @bind-Value=ActiveNFTForm Label="NFT Type">
+                                                    <MudSelectItem Value="@(NFTForm.ERC721)">ERC721</MudSelectItem>
+                                                    <MudSelectItem Value="@(NFTForm.ERC1155)">ERC1155</MudSelectItem>
+                                                </MudSelect>
+                                            </MudItem>
+                                        </MudGrid>
+                                        <MudTextField Label="ERC1155 Address"
+                                              @bind-Value="ERC1155Model.TokenAddress" For="@(() => ERC1155Model.TokenAddress)" />
+                                        <MudTextField Label="ERC1155 Name" Class="mt-3"
+                                              @bind-Value="ERC1155Model.TokenName" For="@(() => ERC1155Model.TokenName)" />
+                                        <MudTextField Label="Token ID" Class="mt-3"
+                                              @bind-Value="ERC1155Model.TokenID" For="@(() => ERC1155Model.TokenID)" InputType=InputType.Number />
+                                    </MudCardContent>
+                                    <MudCardActions>
+                                        @if (ERC1155Result == AddTokenResult.Success)
+                                        {
+                                            <MudText Align=Align.Right Color=@Color.Success>Success</MudText>
+                                        }
+                                        else if (ERC1155Result == AddTokenResult.Existed)
+                                        {
+                                            <MudText Align=Align.Right Color=@Color.Error>Token Already Added</MudText>
+                                        }
+                                        else if (ERC1155Result == AddTokenResult.Invalid_Address)
+                                        {
+                                            <MudText Align=Align.Right Color=@Color.Error>Invalid Contract Address</MudText>
+                                        }
+
+                                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Add NFT</MudButton>
+                                    </MudCardActions>
+                                </MudCard>
+                            </EditForm>
+                        }
+                        else if (ActiveNFTForm == NFTForm.ERC721)
+                        {
+                            <EditForm Model="@ERC721Model" OnValidSubmit="OnERC721ValidSubmit">
+                                <DataAnnotationsValidator />
+                                <MudCard>
+                                    <MudCardContent>
+                                        <MudGrid>
+                                            <MudItem xs=6>
+                                                <MudSelect @bind-Value=ActiveNFTForm Label="NFT Type" Class="pr-16">
+                                                    <MudSelectItem Value="@(NFTForm.ERC721)">ERC721</MudSelectItem>
+                                                    <MudSelectItem Value="@(NFTForm.ERC1155)">ERC1155</MudSelectItem>
+                                                </MudSelect>
+                                            </MudItem>
+                                        </MudGrid>
+                                        <MudTextField Label="ERC721 Address"
+                                              @bind-Value="ERC721Model.TokenAddress" For="@(() => ERC721Model.TokenAddress)" />
+                                        <MudTextField Label="ERC721 Name" Class="mt-3"
+                                              @bind-Value="ERC721Model.TokenName" For="@(() => ERC721Model.TokenName)" />
+                                    </MudCardContent>
+                                    <MudCardActions>
+                                        @if (ERC721Result == AddTokenResult.Success)
+                                        {
+                                            <MudText Align=Align.Right Color=@Color.Success>Success</MudText>
+                                        }
+                                        else if (ERC721Result == AddTokenResult.Existed)
+                                        {
+                                            <MudText Align=Align.Right Color=@Color.Error>Token Already Added</MudText>
+                                        }
+                                        else if (ERC721Result == AddTokenResult.Invalid_Address)
+                                        {
+                                            <MudText Align=Align.Right Color=@Color.Error>Invalid Contract Address</MudText>
+                                        }
+
+                                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Add NFT</MudButton>
+                                    </MudCardActions>
+                                </MudCard>
+                            </EditForm>
+                        }
+                    </MudItem>
+                </MudGrid>
+            </MudContainer>
+        </MudPaper>
+    </MudContainer>
+}
+else
+{
+
+    <MudContainer Class="mud-theme-primary" MaxWidth=MaxWidth.ExtraExtraLarge>
+        <MudPaper Height=800px Class="mud-theme-primary" Elevation="0" Style="padding-top:40px">
+            <MudText Typo=Typo.h2>Welcome to SteakSoft's Wallet</MudText>
+            <MudText Typo=Typo.h5>Please Connect to Metamask to Interact with the website</MudText>
+        </MudPaper>
+    </MudContainer>
+
+}
+<MudOverlay Visible="CurrentTransferApperance == TransferAppearance.Visible" DarkBackground="true" Absolute="true" ZIndex=999>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(e => CurrentTransferApperance = TransferAppearance.Invisible)">Back</MudButton>
+    @if (CurrentTransferType == TransferType.ERC721)
+    {
+        <EditForm Model="@ERC721TransferModel" OnValidSubmit="OnERC721Transfer">
+            <DataAnnotationsValidator />
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField Label="ERC721 Address"
+                              @bind-Value="ERC721Model.TokenAddress" For="@(() => ERC721Model.TokenAddress)" />
+                    <MudTextField Label="Address Receiver" Class="mt-3"
+                              @bind-Value="ERC721TransferModel.AddressTo" For="@(() => ERC721TransferModel.AddressTo)" />
+                    <MudTextField Label="Token Id" Class="mt-3"
+                              @bind-Value="ERC721TransferModel.TokenId" InputType=InputType.Number For="@(() => ERC721TransferModel.TokenId)" />
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Transfer</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </EditForm>
+    }
+    else if (CurrentTransferType == TransferType.ERC20)
+    {
+        <EditForm Model="@ERC20TransferModel" OnValidSubmit="OnERC20Transfer">
+            <DataAnnotationsValidator />
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField Label="Token Address"
+                              @bind-Value="ERC20TransferModel.Token.Address" For="@(() => ERC20TransferModel.Token.Address)" />
+                    <MudTextField Label="Address Receiver" Class="mt-3"
+                              @bind-Value="ERC20TransferModel.AddressTo" For="@(() => ERC20TransferModel.AddressTo)" />
+                    <MudTextField Label="Amount" Class="mt-3"
+                              @bind-Value="ERC20TransferModel.Amount" InputType=InputType.Number For="@(() => ERC20TransferModel.Amount)" />
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Transfer</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </EditForm>
+    }
+    else if (CurrentTransferType == TransferType.ERC1155)
+    {
+        <EditForm Model="@ERC1155TransferModel" OnValidSubmit="OnERC1155Transfer">
+            <DataAnnotationsValidator />
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField Label="ERC1155 Address"
+                              @bind-Value="ERC1155TransferModel.TokenAddress" For="@(() => ERC1155TransferModel.TokenAddress)" />
+                    <MudTextField Label="Address Receiver" Class="mt-3"
+                              @bind-Value="ERC1155TransferModel.AddressTo" For="@(() => ERC1155TransferModel.AddressTo)" />
+                    <MudTextField Label="Token ID" Class="mt-3"
+                              @bind-Value="ERC1155TransferModel.TokenId" InputType=InputType.Number For="@(() => ERC1155TransferModel.TokenId)" />
+                    <MudTextField Label="Amount" Class="mt-3"
+                              @bind-Value="ERC1155TransferModel.Amount" InputType=InputType.Number For="@(() => ERC1155TransferModel.Amount)" />
+
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Transfer</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </EditForm>
+    }
+    else if (CurrentTransferType == TransferType.Ether)
+    {
+        <EditForm Model="@EtherTransferModel" OnValidSubmit="OnEtherTransfer">
+            <DataAnnotationsValidator />
+            <MudCard>
+                <MudCardContent>
+                    <MudTextField Label="Recipient Address"
+                              @bind-Value="EtherTransferModel.AddressTo" For="@(() => EtherTransferModel.AddressTo)" />
+                    <MudTextField Label="Amount" Class="mt-3"
+                              @bind-Value="EtherTransferModel.Amount" For="@(() => EtherTransferModel.Amount)" />
+
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Transfer</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </EditForm>
+    }
+</MudOverlay>
+
+<MudOverlay Visible="CurrentMetadataApperance == MetadataApperance.Visible" DarkBackground="true" Absolute="true" ZIndex=999>
+    <MudPaper>
+        <MudCard>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(e => CurrentMetadataApperance = MetadataApperance.Invisible)">Back</MudButton>
+
+            <img width=32 height=32 src=@ActiveNFTMetadata.Image />
+            <MudCardContent>
+                <MudText>Name: @ActiveNFTMetadata.Name</MudText>
+                <MudText>Description: @ActiveNFTMetadata.Description</MudText>
+                <MudText>Image: @ActiveNFTMetadata.Image</MudText>
+            </MudCardContent>
+
+            <MudCardActions>
+            </MudCardActions>
+        </MudCard>
+    </MudPaper>
+</MudOverlay>
+
+
+@code {
+
+    public List<Network> Networks { get; set; } = new List<Network>();
+
+    public Network? CurrentNetwork { get; set; } = new Network(0);
+
+    Decimal BNB_Balance { get; set; }
+
+    public enum TransferType
+    {
+        Ether,
+        ERC20,
+        ERC721,
+        ERC1155
+    }
+
+    public enum MetadataApperance
+    {
+        Invisible,
+        Visible
+    }
+
+    public enum TransferAppearance
+    {
+        Invisible,
+        Visible
+    }
+
+    public enum NFTForm
+    {
+        ERC721,
+        ERC1155
+    }
+
+    public enum AddTokenResult
+    {
+        None,
+        Success,
+        Existed,
+        Invalid_Address
+    }
+
+    public TransferAppearance CurrentTransferApperance { get; set; } = TransferAppearance.Invisible;
+    public TransferType CurrentTransferType { get; set; } = TransferType.ERC20;
+
+    public NFTForm ActiveNFTForm { get; set; } = NFTForm.ERC721;
+
+    public MetadataApperance CurrentMetadataApperance { get; set; } = MetadataApperance.Invisible;
+
+    public AddTokenResult ERC20Result { get; set; }
+    public AddTokenResult ERC1155Result { get; set; }
+    public AddTokenResult ERC721Result { get; set; }
+
+    TransferERC20Form ERC20TransferModel = new TransferERC20Form();
+    TransferERC721Form ERC721TransferModel = new TransferERC721Form();
+    TransferERC1155Form ERC1155TransferModel = new TransferERC1155Form();
+    TransferEtherForm EtherTransferModel = new TransferEtherForm();
+
+    AddTokenForm ERC20Model = new AddTokenForm();
+    AddERC721Form ERC721Model = new AddERC721Form();
+    AddERC1155Form ERC1155Model = new AddERC1155Form();
+
+    NFTMetadata ActiveNFTMetadata = new NFTMetadata();
+
+    ERC1155 SelectedNFTProperties { get; set; }
+
+    public class AddTokenForm
+    {
+        [Required]
+        [StringLength(42, ErrorMessage = "Invalid Contract Address")]
+        public string? TokenAddress { get; set; }
+
+        [Required]
+        public string? TokenSymbol { get; set; }
+
+        [Required]
+        public int TokenDecimal { get; set; }
+    }
+
+    public class AddERC721Form
+    {
+        [Required]
+        [StringLength(42, ErrorMessage = "Invalid Contract Address")]
+        public string? TokenAddress { get; set; }
+
+        [Required]
+        public string? TokenName { get; set; }
+
+        [Required]
+        public BigInteger TokenId { get; set; }
+    }
+
+    public class AddERC1155Form
+    {
+        [Required]
+        [StringLength(42, ErrorMessage = "Invalid Contract Address")]
+        public string? TokenAddress { get; set; }
+
+        [Required]
+        public string? TokenName { get; set; }
+
+        [Required]
+        public uint TokenID { get; set; }
+    }
+
+    public class TransferERC20Form
+    {
+        [Required]
+        public ERC20 Token { get; set; } = new ERC20(string.Empty, string.Empty, string.Empty, 18);
+
+        [Required]
+        public string? AddressTo { get; set; }
+
+        [Required]
+        public decimal Amount { get; set; }
+    }
+    public class TransferEtherForm
+    {
+        [Required]
+        public string? AddressTo { get; set; }
+
+        [Required]
+        public decimal Amount { get; set; }
+    }
+    public class TransferERC721Form
+    {
+        [Required]
+        [StringLength(42, ErrorMessage = "Invalid Contract Address")]
+        public string? TokenAddress { get; set; }
+
+        [Required]
+        public string? AddressTo { get; set; }
+
+        [Required]
+        public uint TokenId { get; set; }
+    }
+    public class TransferERC1155Form
+    {
+        [Required]
+        [StringLength(42, ErrorMessage = "Invalid Contract Address")]
+        public string? TokenAddress { get; set; }
+
+        [Required]
+        public string? AddressTo { get; set; }
+
+        [Required]
+        public uint Amount { get; set; }
+
+        [Required]
+        public uint TokenId { get; set; }
+    }
+
+    public async Task ShowNFTMetadata(NFTBase nft, int tokenId)
+    {
+        CurrentMetadataApperance = MetadataApperance.Visible;
+
+        var web3 = await _ethereumHostProvider.GetWeb3Async();
+        var account = await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+        var json = await NethereumService.LoadMetadata(await NethereumService.QueryNFTUri(web3, nft.Address, (uint)tokenId));
+
+        ActiveNFTMetadata = JsonConvert.DeserializeObject<NFTMetadata>(json);
+
+        Console.WriteLine(json);
+
+        //ActiveNFTMetadata.Image = NethereumService.ConvertMultiToSingleURL(ActiveNFTMetadata.Image, tokenId);
+    }
+
+    public void AddNewNetwork(Network newNetwork)
+    {
+        var expectedNetwork = Networks.FirstOrDefault(network => network.ChainID == newNetwork.ChainID);
+
+        if (expectedNetwork == null)
+        {
+            Networks.Add(newNetwork);
+        }
+        else
+        {
+            Networks.Remove(expectedNetwork);
+            Networks.Add(newNetwork);
+        }
+    }
+
+    public Network GetNetwork(int chainId)
+    {
+        Console.WriteLine("Getting Network of: " + chainId + " from " + JsonConvert.SerializeObject(Networks));
+
+        var expectedNetwork = Networks.FirstOrDefault(network => network.ChainID == chainId);
+
+        if (expectedNetwork == null)
+        {
+            return new Network(chainId);
+        }
+
+        return expectedNetwork;
+    }
+    private void OnERC1155ValidSubmit(EditContext context)
+    {
+        var existedToken = CurrentNetwork.OwnedListedERC1155.FirstOrDefault(erc1155 => erc1155.NFT.Address == ERC1155Model.TokenAddress && erc1155.TokenID == ERC1155Model.TokenID);
+
+        if (existedToken == null)
+        {
+            if (EthereumRules.IsEthereumAddress(ERC1155Model.TokenAddress))
+            {
+                ERC1155 newListedToken = new ERC1155(ERC1155Model.TokenAddress, ERC1155Model.TokenID);
+                CurrentNetwork.OwnedListedERC1155.Add(new OwnedListedERC1155(newListedToken, ERC1155Model.TokenID, ERC1155Model.TokenName));
+
+                ERC1155Result = AddTokenResult.Success;
+            }
+            else
+            {
+                ERC1155Result = AddTokenResult.Invalid_Address;
+            }
+        }
+        else
+        {
+            ERC1155Result = AddTokenResult.Existed;
+        }
+        StateHasChanged();
+    }
+    private void OnERC721ValidSubmit(EditContext context)
+    {
+        var existedToken = CurrentNetwork.OwnedListedERC721.FirstOrDefault(erc721 => erc721.NFT.Address == ERC721Model.TokenAddress);
+
+        if (existedToken == null)
+        {
+            if (EthereumRules.IsEthereumAddress(ERC721Model.TokenAddress))
+            {
+                ERC721 newListedToken = new ERC721(ERC721Model.TokenAddress);
+                CurrentNetwork.OwnedListedERC721.Add(new OwnedListedERC721(newListedToken, ERC721Model.TokenName));
+
+                ERC721Result = AddTokenResult.Success;
+            }
+            else
+            {
+                ERC721Result = AddTokenResult.Invalid_Address;
+            }
+        }
+        else
+        {
+            ERC721Result = AddTokenResult.Existed;
+        }
+        StateHasChanged();
+    }
+    void ClearAddTokenResultMessage()
+    {
+        ERC1155Result = AddTokenResult.None;
+        ERC721Result = AddTokenResult.None;
+    }
+
+    private void OnERC20ValidSubmit(EditContext context)
+    {
+        var existedToken = CurrentNetwork.OwnedListedToken.FirstOrDefault(erc20 => erc20.Token.Address == ERC20Model.TokenAddress);
+
+        if (existedToken == null)
+        {
+            if (EthereumRules.IsEthereumAddress(ERC20Model.TokenAddress))
+            {
+                ERC20 newListedToken = new ERC20(ERC20Model.TokenSymbol, ERC20Model.TokenSymbol, ERC20Model.TokenAddress, ERC20Model.TokenDecimal);
+                CurrentNetwork.OwnedListedToken.Add(new OwnedListedERC20(newListedToken));
+
+                ERC20Result = AddTokenResult.Success;
+            }
+            else
+            {
+                ERC20Result = AddTokenResult.Invalid_Address;
+            }
+        }
+        else
+        {
+            ERC20Result = AddTokenResult.Existed;
+        }
+        StateHasChanged();
+    }
+
+    async Task OnEtherTransfer(EditContext context)
+    {
+        try
+        {
+            var web3 = await _ethereumHostProvider.GetWeb3Async();
+            Console.WriteLine("web3 acquired");
+            var handler = web3.Eth.GetEtherTransferService();
+
+            var result = handler.TransferEtherAndWaitForReceiptAsync(EtherTransferModel.AddressTo, EtherTransferModel.Amount);
+        }
+        catch (Exception e)
+        {
+
+        }
+    }
+
+    private async Task OnERC20Transfer(EditContext context)
+    {
+        try
+        {
+            var web3 = await _ethereumHostProvider.GetWeb3Async();
+            var account = await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+            var transferAmount = Nethereum.Util.UnitConversion.Convert.ToWei((decimal)ERC20TransferModel.Amount, (int)ERC20TransferModel.Token.Decimal);
+            Console.WriteLine("transfer amount: " + transferAmount);
+            await NethereumService.TransferERC20(web3, ERC20TransferModel.Token.Address, ERC20TransferModel.AddressTo, transferAmount);
+
+            OnTransferDone();
+        }
+        catch (Exception e)
+        {
+
+        }
+
+    }
+    private async Task OnERC721Transfer(EditContext context)
+    {
+        var web3 = await _ethereumHostProvider.GetWeb3Async();
+        var account = await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+        await NethereumService.TransferERC721(web3, ERC721TransferModel.TokenAddress, account, ERC721TransferModel.AddressTo, ERC721TransferModel.TokenId);
+
+        OnTransferDone();
+    }
+    private async Task OnERC1155Transfer(EditContext context)
+    {
+        var web3 = await _ethereumHostProvider.GetWeb3Async();
+        var account = await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+        await NethereumService.TransferERC1155(web3, ERC1155TransferModel.TokenAddress, account, ERC1155TransferModel.AddressTo, ERC1155TransferModel.Amount, ERC1155TransferModel.TokenId);
+
+        OnTransferDone();
+    }
+    void OnTransferDone()
+    {
+        CurrentTransferApperance = TransferAppearance.Invisible;
+    }
+    void OnDisplayPropertiesClosed()
+    {
+        CurrentMetadataApperance = MetadataApperance.Invisible;
+    }
+    void SomeStartupMethod()
+    {
+        // OwnedListedToken.Add(new OwnedListedERC20(STEAKY));
+
+        // STEAKY_HODIERNAL.Name = "STEAKY HODIERNAL NFTs";
+        // OwnedListedNFTs.Add(new OwnedListedERC1155(STEAKY_HODIERNAL, 0, "Premium Pass"));
+        // OwnedListedNFTs.Add(new OwnedListedERC1155(STEAKY_HODIERNAL, 1, "Forward Class"));
+        // OwnedListedNFTs.Add(new OwnedListedERC1155(STEAKY_HODIERNAL, 2, "Gunner Class"));
+        // OwnedListedNFTs.Add(new OwnedListedERC1155(STEAKY_HODIERNAL, 3, "Spy Class"));
+    }
+
+    Task SomeStartupTask()
+    {
+
+        return Task.CompletedTask;
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        SomeStartupMethod();
+        await SomeStartupTask();
+    }
+
+    private async Task UpdateAllBalance()
+    {
+        await UpdateEtherBalance();
+        await UpdateERC20();
+        await UpdateERC1155();
+        await UpdateERC721();
+
+        Snackbar.Add("Balance has been updated", Severity.Success);
+    }
+
+    private async Task UpdateEtherBalance()
+    {
+        var web3 = await _ethereumHostProvider.GetWeb3Async();
+        var account = await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+        try
+        {
+            var balance = await NethereumService.GetEtherBalance(web3, account);
+            BNB_Balance = Web3.Convert.FromWei(balance.Value);
+        }
+        catch (Exception e)
+        {
+
+        }
+
+        this.StateHasChanged();
+    }
+
+    private async Task UpdateERC20()
+    {
+        var web3 = await _ethereumHostProvider.GetWeb3Async();
+        var account = await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+        for (var i = 0; i < CurrentNetwork.OwnedListedToken.Count; i++)
+        {
+            try
+            {
+                var balance = await NethereumService.QueryERC20Balance(web3, CurrentNetwork.OwnedListedToken[i].Token.Address, account);
+                CurrentNetwork.OwnedListedToken[i].Balance = balance;
+            }
+            catch (Exception e)
+            {
+
+            }
+        }
+
+        this.StateHasChanged();
+    }
+
+    private async Task UpdateERC1155()
+    {
+        var web3 = await _ethereumHostProvider.GetWeb3Async();
+        var account = await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+        for (var i = 0; i < CurrentNetwork.OwnedListedERC1155.Count; i++)
+        {
+            try
+            {
+                var balance = await NethereumService.QueryERC1155Balance(web3, (int)CurrentNetwork.OwnedListedERC1155[i].TokenID, account, CurrentNetwork.OwnedListedERC1155[i].NFT.Address);
+                CurrentNetwork.OwnedListedERC1155[i].Balance = balance;
+            }
+            catch (Exception e)
+            {
+
+            }
+        }
+
+        this.StateHasChanged();
+    }
+    private async Task UpdateERC721()
+    {
+        var web3 = await _ethereumHostProvider.GetWeb3Async();
+        var account = await _ethereumHostProvider.GetProviderSelectedAccountAsync();
+
+        for (var i = 0; i < CurrentNetwork.OwnedListedERC721.Count; i++)
+        {
+            try
+            {
+                var balance = await NethereumService.QueryERC721Balance(web3, account, CurrentNetwork.OwnedListedERC721[i].NFT.Address);
+                CurrentNetwork.OwnedListedERC721[i].Balance = balance;
+            }
+            catch (Exception e)
+            {
+
+            }
+        }
+
+        this.StateHasChanged();
+    }
+    void ShowTransfer()
+    {
+        CurrentTransferApperance = TransferAppearance.Visible;
+    }
+    void ShowEtherTransfer()
+    {
+        ShowTransfer();
+        CurrentTransferType = TransferType.Ether;
+    }
+    void ShowERC20Transfer(ERC20 erc20)
+    {
+        ShowTransfer();
+        CurrentTransferType = TransferType.ERC20;
+        ERC20TransferModel.Token.Address = erc20.Address;
+    }
+    void ShowERC721Transfer(ERC721 erc721)
+    {
+        ShowTransfer();
+        CurrentTransferType = TransferType.ERC721;
+        ERC721TransferModel.TokenAddress = erc721.Address;
+    }
+    void ShowERC1155Transfer(ERC1155 erc1155)
+    {
+        ShowTransfer();
+        CurrentTransferType = TransferType.ERC1155;
+        ERC1155TransferModel.TokenAddress = erc1155.Address;
+        ERC1155TransferModel.TokenId = (uint)erc1155.TokenId;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstTime)
+    {
+        if (firstTime)
+        {
+            _ethereumHostProvider.SelectedAccountChanged += HostProvider_SelectedAccountChanged;
+            _ethereumHostProvider.SelectedNetworkChanged += HostProvider_SelectedNetworkChanged;
+            Networks = await GetAllNetworksFromLocalStorage();
+
+            var chainId = await _ethereumHostProvider.GetProviderSelectedNetworkAsync();
+            CurrentNetwork = GetNetwork(chainId);
+        }
+    }
+
+    private async Task HostProvider_SelectedAccountChanged(string account)
+    {
+        this.StateHasChanged();
+    }
+    private async Task HostProvider_SelectedNetworkChanged(int chainId)
+    {
+        CurrentNetwork = GetNetwork(chainId);
+        this.StateHasChanged();
+    }
+    async Task SaveAllNetworksToLocalStorage()
+    {
+        AddNewNetwork(CurrentNetwork);
+
+        string _key = "list_network";
+        string _jsonValue = JsonConvert.SerializeObject(Networks);
+
+        await jsRuntime.InvokeVoidAsync("saveToLocalStorage", new object[] { _key, _jsonValue });
+
+        Snackbar.Add("Listed Assets Saved Successfully", Severity.Success);
+    }
+    async Task<List<Network>> GetAllNetworksFromLocalStorage()
+    {
+        string _key = "list_network";
+
+        var value = await jsRuntime.InvokeAsync<string>("getFromLocalStorage", _key);
+
+        if (string.IsNullOrEmpty(value))
+        {
+            Console.WriteLine("no networks saved");
+
+            List<Network> newNetworkList = new List<Network>();
+            return newNetworkList;
+        }
+        else
+        {
+            Console.WriteLine("found json value:" + value);
+            List<Network> savedNetwork = JsonConvert.DeserializeObject<List<Network>>(value);
+            return savedNetwork;
+        }
+        this.StateHasChanged();
+    }
+}

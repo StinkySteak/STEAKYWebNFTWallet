@@ -1,0 +1,109 @@
+﻿@inherits LayoutComponentBase
+@using Nethereum.UI;
+@using Nethereum.Metamask;
+@inject IJSRuntime jsRuntime;
+@inject IEthereumHostProvider _ethereumHostProvider;
+@using Nethereum.Web3;
+@using Nethereum.Hex.HexTypes;
+
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudThemeProvider Theme="MyCustomTheme" />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+
+        @if (Window.Dimensions.Width > 960)
+        {
+            <MudText Typo="Typo.h5" Class="ml-3">STEAKSOFT's WALLET</MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.h5" Class="ml-3">WALLET</MudText>
+        }
+
+        <MudLink Href="/"><MudText Typo="Typo.h6" Class="ml-3">Wallet</MudText></MudLink>
+        <MudLink Href="/about"><MudText Typo="Typo.h6" Class="ml-3">About</MudText></MudLink>
+        <MudSpacer />
+        @if (!NethereumService.EthereumAvailable)
+        {
+            <MudButton Target="_blank" OnClick=ConnectToMetamask Color=Color.Primary Variant=Variant.Outlined>Connect Wallet</MudButton>
+            <MudButton Target="_blank" Class="ml-6" Link="https://metamask.io/" Color=Color.Primary Variant=Variant.Filled>Download Metamask</MudButton>
+        }
+        else
+        {
+            if (NethereumService.NotConnected)
+            {
+                <MudButton OnClick=ConnectToMetamask Color=Color.Primary Variant=Variant.Outlined>Connect Wallet</MudButton>
+            }
+            else
+            {
+                if (Window.Dimensions.Width > 960)
+                {
+                    <MudButton OnClick=ConnectToMetamask Color=Color.Primary Variant=Variant.Outlined>Connected: @NethereumService.SelectedAccount.Remove(8)... Chain ID: @NethereumService.SelectedChainID</MudButton>
+                    <MudText Color=Color.Primary></MudText>
+                }
+                else
+                {
+                    <MudButton OnClick=ConnectToMetamask Color=Color.Primary Variant=Variant.Outlined> @NethereumService.SelectedAccount.Remove(4)... @NethereumService.SelectedChainID</MudButton>
+                    <MudText Color=Color.Primary></MudText>
+                }
+            }
+        }
+    </MudAppBar>
+    <MudMainContent>
+        @Body
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    MudTheme MyCustomTheme = new MudTheme()
+    {
+        Palette = new Palette()
+        {
+            Primary = Colors.Blue.Lighten1,
+            Secondary = Colors.Blue.Darken4,
+            AppbarBackground = Colors.Blue.Darken4,
+
+        },
+
+        LayoutProperties = new LayoutProperties()
+        {
+            DrawerWidthLeft = "260px",
+            DrawerWidthRight = "300px"
+        }
+    };
+
+
+
+    public async Task ConnectToMetamask()
+    {
+        NethereumService.SelectedAccount = await _ethereumHostProvider.EnableProviderAsync();
+        NethereumService.SelectedChainID = await _ethereumHostProvider.GetProviderSelectedNetworkAsync();
+        Console.WriteLine("SelectedChainID: " + NethereumService.SelectedChainID);
+        Console.WriteLine("SelectedAccount: " + NethereumService.SelectedAccount);
+        this.StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstTime)
+    {
+        if (firstTime)
+        {
+            _ethereumHostProvider.SelectedAccountChanged += HostProvider_SelectedAccountChanged;
+            _ethereumHostProvider.SelectedNetworkChanged += HostProvider_SelectedNetworkChanged;
+
+            NethereumService.EthereumAvailable = await _ethereumHostProvider.CheckProviderAvailabilityAsync();
+            Window.Dimensions = await jsRuntime.InvokeAsync<Window.WindowDimensions>("getWindowSize");
+        }
+    }
+    private async Task HostProvider_SelectedAccountChanged(string account)
+    {
+        NethereumService.SelectedAccount = account;
+        this.StateHasChanged();
+    }
+    private async Task HostProvider_SelectedNetworkChanged(int chainId)
+    {
+        NethereumService.SelectedChainID = chainId;
+        this.StateHasChanged();
+    }
+}
